@@ -1,0 +1,69 @@
+name: Extract ZIP and Build APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check ZIP file
+        run: |
+          test -f NusaDownloadManager-starter.zip || {
+            echo "File NusaDownloadManager-starter.zip tidak ditemukan di root repository."
+            exit 1
+          }
+
+      - name: Extract project ZIP into repository
+        run: |
+          mkdir -p _nusa_extract
+          unzip -oq NusaDownloadManager-starter.zip -d _nusa_extract
+          cp -a _nusa_extract/. .
+          rm -rf _nusa_extract
+          echo "Isi ZIP berhasil diekstrak."
+          ls -la
+
+      - name: Commit extracted source code
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan baru untuk di-commit."
+          else
+            git commit -m "Extract Nusa Download Manager starter project"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NusaDownloadManager-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
