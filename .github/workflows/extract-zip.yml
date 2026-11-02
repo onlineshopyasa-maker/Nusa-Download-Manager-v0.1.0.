@@ -30,15 +30,17 @@ jobs:
           cp -a _nusa_extract/. .
           rm -rf _nusa_extract
           echo "Isi ZIP berhasil diekstrak."
-          ls -la
 
       - name: Commit extracted source code
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
+          # Jangan ikut mengirim file workflow dari dalam ZIP.
+          # GitHub menolak pembuatan file .github/workflows dengan GITHUB_TOKEN biasa.
+          git reset -- .github/workflows
           if git diff --cached --quiet; then
-            echo "Tidak ada perubahan baru untuk di-commit."
+            echo "Tidak ada perubahan source code untuk di-commit."
           else
             git commit -m "Extract Nusa Download Manager starter project"
             git push origin "HEAD:${GITHUB_REF_NAME}"
