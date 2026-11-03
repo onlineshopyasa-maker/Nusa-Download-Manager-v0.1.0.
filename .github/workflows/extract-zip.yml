@@ -1,7 +1,10 @@
-name: Extract ZIP and Build APK
+name: Nusa Download Manager - Android Build
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -16,34 +19,27 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check ZIP file
+      - name: Extract ZIP
         run: |
-          test -f NusaDownloadManager-starter.zip || {
-            echo "File NusaDownloadManager-starter.zip tidak ditemukan di root repository."
-            exit 1
-          }
+          if [ ! -f app/build.gradle.kts ]; then
+            mkdir -p _nusa_extract
+            unzip -oq NusaDownloadManager-starter.zip -d _nusa_extract
+            cp -a _nusa_extract/. .
+            rm -rf _nusa_extract
+          else
+            echo "Source code sudah tersedia."
+          fi
 
-      - name: Extract project ZIP into repository
-        run: |
-          mkdir -p _nusa_extract
-          unzip -oq NusaDownloadManager-starter.zip -d _nusa_extract
-          cp -a _nusa_extract/. .
-          rm -rf _nusa_extract
-          echo "Isi ZIP berhasil diekstrak."
-
-      - name: Commit extracted source code
+      - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          # Jangan ikut mengirim file workflow dari dalam ZIP.
-          # GitHub menolak pembuatan file .github/workflows dengan GITHUB_TOKEN biasa.
           git reset -- .github/workflows
-          if git diff --cached --quiet; then
-            echo "Tidak ada perubahan source code untuk di-commit."
-          else
-            git commit -m "Extract Nusa Download Manager starter project"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Prepare Nusa Download Manager source"
+            git push origin HEAD:${GITHUB_REF_NAME}
           fi
 
       - name: Set up JDK 17
@@ -60,10 +56,10 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build debug APK
+      - name: Build APK
         run: gradle --no-daemon assembleDebug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: NusaDownloadManager-debug
